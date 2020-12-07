@@ -15,7 +15,8 @@
     "axios": "",
     "mongodb": "",
     "mongoose": "",
-    "body-parser": ""
+    "body-parser": "",
+    "crypto-js": ""
   },
   "engines": {
     "node": "12.x"

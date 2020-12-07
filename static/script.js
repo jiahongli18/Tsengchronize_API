@@ -1,32 +1,46 @@
-const SpotifyWebApi = require("spotify-web-api-node");
+var longitude;
+var latitude;
 
-const scopes = [
-  "user-read-private",
-  "user-read-email",
-  "playlist-modify-public",
-  "playlist-modify-private"
-];
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-let spotifyApi = new SpotifyWebApi({
-  clientId: process.env.SPOTIFY_API_ID,
-  clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-  redirectUri: process.env.CALLBACK_URL
-});
+async function getLocation(url) {
+  const success = async function(position) {
+    console.log(position);
+    longitude = position.coords.longitude;
+    latitude = position.coords.latitude;
 
-let access_token =
-  "BQAgZqDB3TOYHnJ5QvEOljKYYtDHgVPL73bKJvXdF7NCLDMwWoW8GphRKfjNqtI97uVpk-IqaPpRTdFUVnqZWCqksnLHCuS-Jb5VUCvcPXcu2Jkbf5zFZvxWExnSV09Q5sJUkg_TC9bTvUEizgN-VJtgJYFJHsbbqfIRykWxa4wxn46jx1HmZcdHtThcAZcE8AlRRQLjgza9PgxGdTyB_2ihlIVT";
-spotifyApi.setAccessToken(access_token);
+    let locationData = {
+      latitude: latitude,
+      longitude: longitude
+    };
 
-spotifyApi.getUserPlaylists("Jack Li").then(
-  function(data) {
-    console.log("Retrieved playlists", data.body);
-  },
-  function(err) {
-    console.log("Something went wrong!", err);
+    await fetch(url, {
+      method: "POST",
+      mode: "cors",
+      cache: "no-cache",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      redirect: "follow",
+      referrerPolicy: "no-referrer",
+      body: JSON.stringify(locationData)
+    });
+  };
+  const failure = function(message) {
+    alert("Cannot retrieve location!");
+  };
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(success, failure);
+    await sleep(5000);
+  } else {
+    alert("Geolocation not supported");
   }
-);
+}
 
-// data.items.map(function(artist) {
-//   let item = $("<button>" + artist.name + "</button>");
-//   item.appendTo($("#top-artists"));
-// });
+getLocation("https://tsengchronize.glitch.me/addLocation").then(() => {
+  window.location.href = "https://tsengchronize.glitch.me/login2";
+});

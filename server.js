@@ -14,6 +14,9 @@ mongoose.connect(
 mongoose.Promise = global.Promise;
 
 //middleware
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use("/static", express.static("./static/"));

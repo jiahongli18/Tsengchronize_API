@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/user");
+const Location = require("../models/location");
 const SpotifyWebApi = require("spotify-web-api-node");
+const CryptoJS = require("crypto-js");
+const axios = require("axios");
 
 const scopes = [
   "user-read-private",
@@ -25,7 +28,6 @@ router.get("/", (request, response) => {
 
 router.get("/login", (req, res) => {
   var html = spotifyApi.createAuthorizeURL(scopes);
-  console.log(html);
   res.redirect(html + "&show_dialog=true");
 });
 
@@ -43,6 +45,7 @@ router.get("/callback", async (req, res) => {
       result.body.images[0] === undefined ? "" : result.body.images[0].url;
 
     let username = result.body.display_name;
+    let locationObj;
 
     // Get a user's playlists and put them into the database
     try {
@@ -56,6 +59,13 @@ router.get("/callback", async (req, res) => {
       console.log(err);
     }
 
+    //get Location Lat, Long
+    await Location.find({}, function(err, locations) {
+      if (!err) {
+        locationObj = locations[0];
+      }
+    });
+
     //put the user into the database, overwrite entry if it is already in there
     // executes, passing results to callback
     // const results = await User.findById(roomID);
@@ -66,13 +76,13 @@ router.get("/callback", async (req, res) => {
             username: username,
             userImage: userImage,
             access_token: access_token,
-            curr_song: "",
-            next_song: "",
+            songVotes: [],
             chosen_playlist:
               customPlaylistObj[
                 Math.floor(Math.random() * customPlaylistObj.length)
               ].id, //choose random song from playlist
-            playlists: customPlaylistObj
+            playlists: customPlaylistObj,
+            location: locationObj
           },
           function(err, instance) {
             if (err) return err;
@@ -80,7 +90,6 @@ router.get("/callback", async (req, res) => {
         );
       } else {
         //just update the access_token
-        console.log("here");
         User.findOneAndUpdate(
           { username: username },
           { access_token: access_token },
@@ -100,12 +109,13 @@ router.get("/callback", async (req, res) => {
     });
 
     //redirect to app if there is no error
-    location.href = "Tsengchronize://";
+    // location.href = "Tsengchronize://";
     // res.sendFile("/app/views/pickPlaylist.html");
-    // res.redirect("http://localhost:3001/home");
+    res.redirect("Tsengchronize://");
   } catch (err) {
     console.log(err);
-    res.redirect("/#/error/invalid token");
+    // location.href = "Tsengchronize://";
+    res.redirect("Tsengchronize://");
   }
 });
 
@@ -126,6 +136,7 @@ router.get("/availableUsers", async (req, res) => {
 router.get("/getPlaylist", async (req, res) => {
   let roomID = req.query.id;
   let results = await User.findById(roomID);
+  console.log(results.access_token);
 
   spotifyApi.setAccessToken(results.access_token);
   spotifyApi.getPlaylist(results.chosen_playlist).then(
@@ -136,6 +147,131 @@ router.get("/getPlaylist", async (req, res) => {
       res.status(400).send(err);
     }
   );
+});
+
+router.post("/addLocation", async (req, res) => {
+  let latitude = req.body.latitude;
+  let longitude = req.body.longitude;
+
+  Location.findOneAndUpdate(
+    {},
+    { latitude: latitude, longitude: longitude },
+    function(err, result) {
+      if (err) {
+        res.send(err);
+      } else {
+        if (!result) {
+          Location.create({
+            latitude: latitude,
+            longitude: longitude
+          });
+        }
+        res.send(result);
+      }
+    }
+  );
+});
+
+router.post("/voteSong", async (req, res) => {
+  let id = req.body.id;
+  let trackID = req.body.trackID;
+  let voteType = req.body.voteType;
+
+  let result = await User.findById(id).exec();
+  let songVotesArr = result.songVotes;
+  let songObj = songVotesArr.find(song => song.trackID === trackID);
+
+  if (songObj) {
+    voteType === "upvote" ? songObj.voteCount++ : songObj.voteCount--;
+  } else {
+    songVotesArr.push({
+      trackID: trackID,
+      voteCount: 1
+    });
+  }
+
+  User.findOneAndUpdate({ _id: id }, { songVotes: songVotesArr }, function(
+    err,
+    result
+  ) {
+    if (err) {
+      res.send(err);
+    } else {
+      res.status(200).send("success");
+    }
+  });
+});
+
+router.post("/queueSong", async (req, res) => {
+  let id = req.body.id;
+  let songID = req.body.songID;
+
+  await User.find({ _id: id }, function(err, user) {
+    //resume playback first(queue won't work unless user is listening to music already)
+    var config = {
+      method: "put",
+      url: "https://api.spotify.com/v1/me/player/play",
+      headers: {
+        Authorization: `Bearer ${user[0].access_token}`
+      }
+    };
+
+    axios(config)
+      .then(function(response) {
+        console.log(JSON.stringify(response.data));
+      })
+      .catch(function(error) {
+        console.log(error);
+      });
+
+    //queue song
+    config = {
+      method: "post",
+      url: `https://api.spotify.com/v1/me/player/queue?uri=${songID}`,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${user[0].access_token}`
+      }
+    };
+
+    axios(config)
+      .then(function(response) {
+        console.log(JSON.stringify(response.data));
+      })
+      .catch(function(error) {
+        console.log(error);
+      });
+  });
+
+  //delete song from our queue
+  let result = await User.findById(id).exec();
+  let songVotesArr = result.songVotes;
+
+  songVotesArr.splice(
+    songVotesArr.findIndex(song => song.trackID === songID),
+    1
+  );
+
+  User.findOneAndUpdate({ _id: id }, { songVotes: songVotesArr }, function(
+    err,
+    result
+  ) {
+    if (err) {
+      res.send(err);
+    } else {
+      res.status(200).send("success");
+    }
+  });
+});
+
+//display all the avaliable locations with their information from the database
+router.get("/getLocation", async (req, res) => {
+  await Location.find({}, function(err, locations) {
+    if (!err) {
+      res.status(200).send(locations[0]);
+    }
+  });
 });
 
 module.exports = router;

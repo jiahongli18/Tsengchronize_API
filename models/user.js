@@ -6,13 +6,23 @@ const UserSchema = new Schema({
   username: String,
   userImage: String,
   access_token: String,
-  curr_song: String,
-  next_song: String,
+  songVotes: [
+    {
+      trackID: String,
+      voteCount: Number
+    }
+  ],
   chosen_playlist: String,
   playlists: [
     {
       id: String,
       playlist: String
+    }
+  ],
+  location: [
+    {
+      latitude: String,
+      longitude: String
     }
   ]
 });
