@@ -1,6 +1,7 @@
 dependencies:
   axios: 0.21.0
   body-parser: 1.19.0
+  crypto-js: 4.0.0
   express: 4.17.1
   mongodb: 3.6.2
   mongoose: 5.10.12
@@ -113,6 +114,10 @@ packages:
     dev: false
     resolution:
       integrity: sha1-tf1UIgqivFq1eqtxQMlAdUUDwac=
+  /crypto-js/4.0.0:
+    dev: false
+    resolution:
+      integrity: sha512-bzHZN8Pn+gS7DQA6n+iUmBfl0hO5DJq++QP3U6uTucDtk/0iGpXd/Gg7CGR0p8tJhofJyaKoWBuJI4eAO00BBg==
   /debug/2.6.9:
     dependencies:
       ms: 2.0.0
@@ -706,6 +711,7 @@ shrinkwrapVersion: 3
 specifiers:
   axios: ''
   body-parser: ''
+  crypto-js: ''
   express: ^4.17.1
   mongodb: ''
   mongoose: ''
